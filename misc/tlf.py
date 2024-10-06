@@ -117,7 +117,7 @@ class Test:
     y: int|str|None = None
     
     def do(self):
-        self._dispatch(a = self.x, b = self.y)
+        self._dispatch(self.x, self.y)
 
     @multimethod
     def _dispatch(self, a, b): # default case
