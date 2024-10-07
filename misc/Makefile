@@ -1,0 +1,2 @@
+edit:
+	emacs tlf.py &

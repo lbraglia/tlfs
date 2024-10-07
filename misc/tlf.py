@@ -1,154 +1,194 @@
-# import tlf
+import pandas as pd
 
 from dataclasses import dataclass, field
 from multimethod import multimethod
 
-def _def_quant_display():
-    return ("missing", "not missing", "min", "25pct",
-            "mean", "median", "75pct", "max", "sd", "iqr")
+    
 
-def _def_quali_groups():
-    return ("All")
+def _def_quant_display():
+    return ["n", "NA",
+            "min", "25pct", "75pct", "max",
+            "median", "iqr",
+            "mean", "sd"]
 
 
 @dataclass
 class Quant:
-    desc: str = None   # long variable description
+    desc: str          # long variable description
     unit: str = None   # unit of measure
     min: float = None  # minimum
     max: float = None  # maximum
-    display: list[str]|tuple[str] = field(default_factory = _def_quant_display)
+    display: list[str] = field(default_factory = _def_quant_display)
     cell_content: str = "x"  # default cell content (single number)
+
+    def __post_init__(self):
+        # normalize display so that user can specify a single string
+        if type(self.display) is str:
+            self.display = [self.display]
+    
+age  = Quant("Age")
 
 @dataclass
 class Quali:
     desc: str   # variable description
-    groups: list[str]|tuple[str] = field(default_factory = _def_quali_groups)
+    groups: list[str]
     display: str = "n (col %)"
     cell_content: str = "x (x)"  # default cell content (single number)
+    add_NA: bool = True
+    add_tot: bool = True
 
-    
+    def __post_init__(self):
+        # check quali has at least two groups
+        if len(self.groups) < 2:
+            raise Exception("At least two groups are required")
+        # add NA and Tot to the group
+        add_groups = ["NA"] * self.add_NA + ["Tot"] * self.add_tot
+        self.actual_groups = self.groups + add_groups
+        
+sex = Quali("Sex", groups = ["M", "F"])
+trt = Quali("Treatment", groups = ["EXP", "CTRL"])
+        
 @dataclass
 class Table():
     x: Quant|Quali
     y: Quant|Quali|None = None # none if univariate
-    row_tot: bool = True
-    col_tot: bool = False
     
-    def to_df(self):
-        self.df(a = self.x, b = self.y)
+    def __post_init__(self):
+        # check input
+        if self.x is None:
+            raise Exception("x cannot be None")
+               
+        # generate the pd.DataFrame representing the table
+        self._make_df(self.x, self.y)
 
+
+    def to_csv(self, f):
+        self.df.to_csv(f, header = False, index = False)
+
+    def add_to_docx(self):
+        pass
+        
+    def _print_info(self):
+        report = """
+        caption = {0} (tabtype = {1}),
+        header_nrows = {2}, nrows = {3},  ncols = {4}
+        """.format(
+            self.caption,
+            self.tabtype,
+            self.header_nrows,
+            self.nrows,
+            self.ncols)
+        print(report)
+
+        
     @multimethod
-    def df(self, a, b):
+    def _make_df(self, a, b):
         print("boo")
 
-    @df.register
-    def df(self, a: Quant, b: None):
-        print("univariate quant")
-
-    @df.register
-    def df(self, a: Quant, b: None):
-        print("univariate quali")
-
-    @df.register
-    def df(self, a: Quant, b: Quali):
-        print("quant x quali")
-
-    @df.register
-    def df(self, a: Quali, b: Quali):
-        print("quant x quali")
+    @_make_df.register
+    def _make_df(self, a: Quant, b: None):
+        # table infos
+        self.tabtype = "univariate quant"
+        self.caption = a.desc
+        self.header_nrows = 1
+        self.nrows = self.header_nrows + len(a.display)
+        self.ncols = 2
+        self._print_info()
+        # table creation
+        main_header = "{0} ({1})".format(a.desc, a.unit) if a.unit is not None else a.desc
+        col1 = pd.Series([""] + a.display)
+        col2 = pd.Series([main_header] + [a.cell_content]*len(a.display))
+        self.df = pd.concat([col1, col2], axis = 1)
+        print(self.df)
         
+    @_make_df.register
+    def _make_df(self, a: Quali, b: None):
+        # table infos
+        self.caption = a.desc
+        self.tabtype = "univariate quali"
+        self.header_nrows = 1
+        self.nrows = self.header_nrows + len(a.actual_groups) 
+        self.ncols = 2
+        self._print_info()
+        # table creation
+        col2_head = a.desc + ", "+ a.display
+        col1 = pd.Series([""] + a.actual_groups)
+        col2 = pd.Series([col2_head] + [a.cell_content]*len(a.actual_groups))
+        self.df = pd.concat([col1, col2], axis = 1)
+        print(self.df)
+
+    @_make_df.register
+    def _make_df(self, a: Quant, b: Quali):
+        # table infos
+        self.tabtype = "quant x quali"
+        self.header_nrows = 2
+        self.nrows = self.header_nrows + len(a.display)
+        self.ncols = 1 + len(b.groups) + 2
+        self.caption = "{0} by {1}".format(a.desc, b.desc.lower())
+        self._print_info()
+        # table creation
+        y_header = b.desc
+        x_header = "{0} ({1})".format(a.desc, a.unit) if a.unit is not None else a.desc
+        row1_header = ["", y_header] + [""] * (len(b.actual_groups) - 1)
+        row2_header = [x_header] + b.actual_groups
+        df   = pd.DataFrame(row1_header).transpose()
+        row2 = pd.DataFrame(row2_header).transpose()
+        df = pd.concat([df, row2])
+        # fill the table rowwise
+        for x in a.display:
+            content = [x] + [a.cell_content] * (self.ncols - 1)
+            new_row = pd.DataFrame(content).transpose()
+            df = pd.concat([df, new_row])
+        self.df = df
+        print(self.df)
+
+    @_make_df.register
+    def _make_df(self, a: Quali, b: Quali):
+        # table infos
+        self.tabtype = "quali x quali"
+        self.header_nrows = 2
+        self.nrows = self.header_nrows + len(a.actual_groups)
+        self.ncols = 1 + len(b.actual_groups)
+        self.caption = "{0} by {1}".format(a.desc, b.desc.lower())
+        self._print_info()
+        # table creation
+        # table creation
+        y_header = b.desc + ", " + b.display
+        x_header = a.desc
+        row1_header = ["", y_header] + [""] * (len(b.actual_groups) - 1)
+        row2_header = [x_header] + b.actual_groups
+        df   = pd.DataFrame(row1_header).transpose()
+        row2 = pd.DataFrame(row2_header).transpose()
+        df = pd.concat([df, row2])
+        # fill the table rowwise
+        for x in a.actual_groups:
+            content = [x] + [b.cell_content] * (self.ncols - 1)
+            new_row = pd.DataFrame(content).transpose()
+            df = pd.concat([df, new_row])
+        self.df = df
+        print(self.df)
+
     
-    
-    
-age  = Quant("Age")
-age2 = Quant("Age", display = ["median", "25pct", "75pct"])
-age3 = Quant("Age", display = "median (iqr)", cell_content = "xx (xx - xx)")
-sex = Quali("Sex", groups = ["M", "F"])
-sex2 = Quali("Sex", groups = ["M", "F"], display = "n", cell_content = "x")
-trt = Quali("Treatment", groups = ["EXP", "CTRL"])
 
-
-t1 = Table(age, sex)
-t1.to_df()
-
-
-
+Table(age)
 Table(sex)
 Table(age, trt)
 Table(sex, trt)
+Table(sex, trt)
 
-
-# As long as i use functions this works lovely
-@multimethod
-def disp(a, b):
-    print("dunno")
-    
-@multimethod
-def disp(a: int, b: None):
-    print("int x none")
-
-@multimethod
-def disp(a: str, b: None):
-    print("str x none")
-
-@multimethod
-def disp(a: int, b: str):
-    print("int x str")
-
-@multimethod
-def disp(a: str, b: str):
-    print("str x str")
-
-
-disp(None, None) # dunno
-disp(1, None)    # int x none
-disp("test", None) # str x none
-disp(1, "test")    # int x str
-disp("test", "test") # str x str
-
-
- 
-
-
-@dataclass
-class Test:
-    x: int|str
-    y: int|str|None = None
-    
-    def do(self):
-        self._dispatch(self.x, self.y)
-
-    @multimethod
-    def _dispatch(self, a, b): # default case
-        print("dunno")
-
-    @multimethod
-    def _dispatch(self, a: int, b: None):
-        print("int x none")
-
-    @multimethod
-    def _dispatch(self, a: str, b: None):
-        print("str x none")
-
-    @multimethod
-    def _dispatch(self, a: int, b: str):
-        print("int x str")
-
-    @multimethod
-    def _dispatch(self, a: str, b: str):
-        print("str x str")
-
-    # etc..
-
-## what is printed is always the default case
-t1 = Test(1)
-type(t1.x)
-t1.y is None
-t1.do() # should be int x none
-Test("test").do()  # should be str x none
-Test(1, "test").do()  # should be int x str
-Test("test", "test").do()  # should be str x str
+# Change display
+age2 = Quant("Age",
+             display = ["median", "25pct", "75pct"],
+             unit = 'years')
+Table(age2)
+Table(age2, trt)
+age3 = Quant("Age",
+             display = "median (iqr)",
+             cell_content = "xx (xx - xx)")
+Table(age3, trt)
+sex2 = Quali("Sex", groups = ["M", "F"],
+             display = "n", cell_content = "x")
+Table(sex2)
 
 
 
