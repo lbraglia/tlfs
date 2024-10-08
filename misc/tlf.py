@@ -6,7 +6,7 @@ import docx
 from dataclasses import dataclass, field
 from multimethod import multimethod
 from itertools import chain
-from docx.enum.table import WD_TABLE_ALIGNMENT
+# from docx.enum.table import WD_TABLE_ALIGNMENT
 
 def _def_quant_display():
     return ["n", "NA",
@@ -66,23 +66,11 @@ class Itemset:
             self.contents = [self.contents]
 
 
-            
-age = Quant("Age")
-sex = Quali("Sex", groups = ["M", "F"])
-trt = Quali("Treatment", groups = ["EXP", "CTRL"])
-age2 = Quant("Age", display = ["median", "25pct", "75pct"], unit = 'years')
-age3 = Quant("Age", display = "median (iqr)", cell_content = "xx (xx - xx)")
-sex2 = Quali("Sex", groups = ["M", "F"], display = "n", cell_content = "x")
-prices = Itemset("Unit costs", items = ["Dentist", "Hospice", "Blood test"],
-                 contents = ["unit cost", "per", "source"])
-nation = Quali("Nation", groups = ["UK", "ITA"])
-
-
-
 @dataclass
 class Table():
     x: Quant|Quali
     y: Quant|Quali|None = None # none if univariate
+    caption: str|None = None
     
     def __post_init__(self):
         # check input
@@ -110,7 +98,8 @@ class Table():
     def _make_df(self, a: Quant, b: None):
         # table infos
         self.tabtype = "univariate quant"
-        self.caption = a.desc
+        if self.caption is None:
+            self.caption = a.desc
         self.header_nrows = 1
         self.nrows = self.header_nrows + len(a.display)
         self.ncols = 2
@@ -123,7 +112,8 @@ class Table():
     @_make_df.register
     def _make_df(self, a: Quali, b: None):
         # table infos
-        self.caption = a.desc
+        if self.caption is None:
+            self.caption = a.desc
         self.tabtype = "univariate quali"
         self.header_nrows = 1
         self.nrows = self.header_nrows + len(a.actual_groups) 
@@ -141,14 +131,15 @@ class Table():
         self.header_nrows = 2
         self.nrows = self.header_nrows + len(a.display)
         self.ncols = 1 + len(b.groups) + 2
-        self.caption = "{0} by {1}".format(a.desc, b.desc.lower())
+        if self.caption is None:
+            self.caption = "{0} by {1}".format(a.desc, b.desc.lower())
         # table creation
         y_header = b.desc
         x_header = "{0} ({1})".format(a.desc, a.unit) if a.unit is not None else a.desc
         header_row1 = ["", y_header] + [""] * (len(b.actual_groups) - 1)
         header_row2 = [x_header] + b.actual_groups
         self.merged_cells = [([0, 0], [1, 0]),
-                             ([0,1], [0, self.ncols - 1])]
+                             ([0, 1], [0, self.ncols - 1])]
         df   = pd.DataFrame(header_row1).transpose()
         row2 = pd.DataFrame(header_row2).transpose()
         df = pd.concat([df, row2])
@@ -166,15 +157,15 @@ class Table():
         self.header_nrows = 2
         self.nrows = self.header_nrows + len(a.actual_groups)
         self.ncols = 1 + len(b.actual_groups)
-        self.caption = "{0} by {1}".format(a.desc, b.desc.lower())
-        # table creation
+        if self.caption is None:
+            self.caption = "{0} by {1}".format(a.desc, b.desc.lower())
         # table creation
         y_header = b.desc + ", " + b.display
         x_header = a.desc
         header_row1 = ["", y_header] + [""] * (len(b.actual_groups) - 1)
         header_row2 = [x_header] + b.actual_groups
         self.merged_cells = [([0, 0], [1, 0]),
-                             ([0,1], [0, self.ncols - 1])]
+                             ([0, 1], [0, self.ncols - 1])]
         df   = pd.DataFrame(header_row1).transpose()
         row2 = pd.DataFrame(header_row2).transpose()
         df = pd.concat([df, row2])
@@ -192,7 +183,8 @@ class Table():
         self.header_nrows = 1
         self.nrows = self.header_nrows + len(a.items)
         self.ncols = 1 + len(a.contents)
-        self.caption = "Listing of {0}".format(a.desc.lower())
+        if self.caption is None:
+            self.caption = "Listing of {0}".format(a.desc.lower())
         # table creation
         header_row1 = [""] + a.contents
         df   = pd.DataFrame(header_row1).transpose()
@@ -210,7 +202,8 @@ class Table():
         self.header_nrows = 2
         self.nrows = self.header_nrows + len(a.items)
         self.ncols = 1 + len(a.contents) * len(b.groups)
-        self.caption = "Listing of {0} by {1}".format(a.desc.lower(), b.desc.lower())
+        if self.caption is None:
+            self.caption = "Listing of {0} by {1}".format(a.desc.lower(), b.desc.lower())
         # table creation
         head = [[x] + ([""] * (len(a.contents) - 1))    for x in b.groups]
         header_row1 = [""] + list(chain.from_iterable(head)) # flatten it
@@ -253,9 +246,9 @@ class Table():
         doc.add_paragraph(self.caption)
         tab = doc.add_table(rows = self.nrows, cols = self.ncols)
         # tab.style = "Table Grid" #funzionasse
-        tab.alignment = WD_TABLE_ALIGNMENT.LEFT
-        tab.autofit = False
-        tab.style = None
+        # tab.alignment = WD_TABLE_ALIGNMENT.LEFT
+        # tab.autofit = False
+        # tab.style = None
 
         # add contents
         for r in range(self.nrows):
@@ -277,47 +270,87 @@ class Table():
                 stop_cell = tab.cell(stop[0], stop[1])
                 start_cell.merge(stop_cell)
 
-        # TODOHERE add borders
+        # blank line at the end
         doc.add_paragraph("")
-       
-res = [Table(age),       ## Univariate table
-       Table(sex),
-       Table(age, trt),  ## Bivariate
-       Table(sex, trt),
-       Table(sex, trt),
-       Table(age2), # Change defaults
-       Table(age2, trt),
-       Table(age3, trt),
-       Table(sex2), 
-       Table(prices), # listings
-       Table(prices, nation)]
 
 
+@dataclass
+class Section:
+    title: str = ""
+    tables: list[Table] = field(default_factory = list)
+    heading_lev: int = 2
 
-tlf = docx.Document()
-_ = [t.add_to_doc(tlf) for t in res]
-tlf.save("/tmp/test.docx")
-os.system("libreoffice /tmp/test.docx")
+    def add_tables(self, x: Table|list[Table]):
+        if type(x) == list:
+            self.tables.expand(x)
+        elif type(x) == Table:
+            self.tables.append(x)
+        else:
+            raise Exception("x must be a Table or a list of tables")
+        
+    def add_to_doc(self, doc: docx.Document):
+        # heading and space
+        doc.add_heading(self.title, level = self.heading_lev)
+        doc.add_paragraph("")
+        # add tables
+        for t in self.tables:
+            t.add_to_doc(doc)
 
+            
+@dataclass
+class TLF:
+    title: str|None = None
+    sections: list[Section] = field(default_factory = list)
+    heading_lev: int = 1
 
-
-
-
-
-
-
-# sections composition
-univariate = tlf.Section(label = 'Univariate demographics', seq = [age, sex, trt])
-bivariate = tlf.Section(label = 'Stratified demographics', seq = [sex * trt, age * trt])
-
-#  custom tables: choose caption and cell content: strata just in case
-stacked_univariate = tlf.Stacked(caption = 'Stacked/stratified demographics',x = [sex, age, trt, mmhg_t0, mmhg_t1])
-stacked_bivariate = tlf.Stacked(caption = 'Stacked/stratified demographics', x = [sex, age, mmhg_t0, mmhg_t1], y = trt)
-tab_custom = tlf.Table(caption = 'Age by treatment (n)', x = age, y = trt, cell_content = "x")
-lst1 = tlf.Listing(variable = other)
+    def add_sections(self, x: Section|list[Section]):
+        if type(x) == list:
+            self.sections.expand(x)
+        elif type(x) == Section:
+            self.sections.append(x)
+        else:
+            raise Exception("x must be a Section or a list of sections")
     
-custom = tlf.Section(label = "Other miscellaneous tests", seq = [stacked_uni, stacked_biv, tab_custom, lst1])
+    def to_doc(self, outfile: str = "/tmp/test.docx", view: bool = False):
+        doc = docx.Document()
+        # header
+        if type(self.title) is str:
+            doc.add_heading(self.title, level = self.heading_lev)
+            
+        # content
+        for s in self.sections:
+            s.add_to_doc(doc)
 
-out = tlf.TLF(sections = [univariate, bivariate, custom])
-out.to_doc("/tmp/tlf.doc")
-out.to_latex("/tmp/tlf.tex")
+        doc.save(outfile)
+        if view:
+            os.system("libreoffice " + outfile)
+        
+
+age = Quant("Age")
+sex = Quali("Sex", groups = ["M", "F"])
+trt = Quali("Treatment", groups = ["EXP", "CTRL"])
+age2 = Quant("Age", display = ["median", "25pct", "75pct"], unit = 'years')
+age3 = Quant("Age", display = "median (iqr)", cell_content = "xx (xx - xx)")
+sex2 = Quali("Sex", groups = ["M", "F"], display = "n", cell_content = "x")
+prices = Itemset("Unit costs", items = ["Dentist", "Hospice", "Blood test"],
+                 contents = ["unit cost", "per", "source"])
+nation = Quali("Nation", groups = ["UK", "ITA"])
+
+
+univ = Section("Univariate tables", [Table(age), Table(sex)])
+biv = Section("Bivariate tables", [Table(age, trt), Table(sex, trt), Table(sex, trt)])
+changed_def = Section("Some changed defaults", [Table(age2), Table(age2, trt), Table(age3, trt), Table(sex2)])
+listings = Section("Listings", [Table(prices), Table(prices, nation)])
+tlf = TLF("Table, Listings, Figure examples", [univ, biv, changed_def, listings])
+
+tlf.to_doc(view = True)
+
+
+
+
+
+
+
+        
+# overloading * to create Tables
+bivariate = tlf.Section('Overload *', [sex * trt, age * trt])
