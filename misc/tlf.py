@@ -147,6 +147,8 @@ class Table():
         x_header = "{0} ({1})".format(a.desc, a.unit) if a.unit is not None else a.desc
         header_row1 = ["", y_header] + [""] * (len(b.actual_groups) - 1)
         header_row2 = [x_header] + b.actual_groups
+        self.merged_cells = [([0, 0], [1, 0]),
+                             ([0,1], [0, self.ncols - 1])]
         df   = pd.DataFrame(header_row1).transpose()
         row2 = pd.DataFrame(header_row2).transpose()
         df = pd.concat([df, row2])
@@ -171,6 +173,8 @@ class Table():
         x_header = a.desc
         header_row1 = ["", y_header] + [""] * (len(b.actual_groups) - 1)
         header_row2 = [x_header] + b.actual_groups
+        self.merged_cells = [([0, 0], [1, 0]),
+                             ([0,1], [0, self.ncols - 1])]
         df   = pd.DataFrame(header_row1).transpose()
         row2 = pd.DataFrame(header_row2).transpose()
         df = pd.concat([df, row2])
@@ -248,7 +252,7 @@ class Table():
     def add_to_doc(self, doc: docx.Document):
         doc.add_paragraph(self.caption)
         tab = doc.add_table(rows = self.nrows, cols = self.ncols)
-        tab.style = "Normal Table"
+        # tab.style = "Table Grid" #funzionasse
         tab.alignment = WD_TABLE_ALIGNMENT.LEFT
         tab.autofit = False
         tab.style = None
@@ -276,7 +280,6 @@ class Table():
         # TODOHERE add borders
         doc.add_paragraph("")
        
-
 res = [Table(age),       ## Univariate table
        Table(sex),
        Table(age, trt),  ## Bivariate
@@ -289,24 +292,12 @@ res = [Table(age),       ## Univariate table
        Table(prices), # listings
        Table(prices, nation)]
 
-tlf = docx.Document("templates/blank.docx")
+
+
+tlf = docx.Document()
 _ = [t.add_to_doc(tlf) for t in res]
 tlf.save("/tmp/test.docx")
-
-styles = tlf.styles
-for style in styles:
-    print(style.name)
-
-
-blank = docx.Document("templates/blank.docx")
-for style in blank.styles:
-    print(style.name)
-    
 os.system("libreoffice /tmp/test.docx")
-os.getcwd()
-
-
-
 
 
 
