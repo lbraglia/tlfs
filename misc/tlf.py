@@ -30,6 +30,8 @@ class Quant:
         if type(self.display) is str:
             self.display = [self.display]
     
+    def __mul__(self, other):
+        return Table(self, other)
 
 @dataclass
 class Quali:
@@ -48,6 +50,8 @@ class Quali:
         add_groups = ["NA"] * self.add_NA + ["Tot"] * self.add_tot
         self.actual_groups = self.groups + add_groups
         
+    def __mul__(self, other):
+        return Table(self, other)
 
 @dataclass
 class Itemset:
@@ -67,6 +71,9 @@ class Itemset:
         if type(self.contents) is str:
             self.contents = [self.contents]
 
+    def __mul__(self, other):
+        return Table(self, other)
+    
 
 @dataclass
 class Table():
@@ -81,17 +88,19 @@ class Table():
                
         # generate the pd.DataFrame representing the table
         self._make_df(self.x, self.y)
-        self._print_info()
-        print(self.df)
+        if debug:
+            self._print_info()
+            print(self.df)
         
     def to_csv(self, f):
         self.df.to_csv(f, header = False, index = False)
         
     @multimethod
     def _make_df(self, a, b):
-        print(type(a))
-        print(type(b))
-        raise Exception("Unhandled types combination of x and y")
+        ta = str(type(a))
+        tb = str(type(b))
+        msg = "Unhandled types combination of x ({0}) and y ({1})".format(ta, tb)
+        raise Exception(msg)
 
     @_make_df.register
     def _make_df(self, a: Quant, b: None):
@@ -217,7 +226,8 @@ class Table():
             header_row1_merged_start,
             header_row1_merged_stop
         )]
-        print(self.merged_cells)
+        if debug:
+            print(self.merged_cells)
         header_row2 = [""] + a.contents * len(b.groups)
         df   = pd.DataFrame(header_row1).transpose()
         row2 = pd.DataFrame(header_row2).transpose()
@@ -427,31 +437,38 @@ tlf.to_docx(view = True)
 
     
 # for custom shit do program by hand
+# ----------------------------------
+
+# overloading can be useful: * in variables to create Tables
 age = Quant("Age")
 sex = Quali("Sex", groups = ["M", "F"])
 trt = Quali("Treatment", groups = ["EXP", "CTRL"])
-age2 = Quant("Age", display = ["median", "25pct", "75pct"], unit = 'years')
-age3 = Quant("Age", display = "median (iqr)", cell_content = "xx (xx - xx)")
-sex2 = Quali("Sex", groups = ["M", "F"], display = "n", cell_content = "x")
-prices = Itemset("Unit costs", items = ["Dentist", "Hospice", "Blood test"],
+prices = Itemset("Unit costs",
+                 items = ["Dentist", "Hospice", "Blood test"],
                  contents = ["unit cost", "per", "source"])
 nation = Quali("Nation", groups = ["UK", "ITA"])
 
+age * trt
+[var * trt for var in [age, sex]] + [prices * nation]
+
+
+# changing default example
+age2 = Quant("Age", display = ["median", "25pct", "75pct"], unit = 'years')
+age3 = Quant("Age", display = "median (iqr)", cell_content = "xx (xx - xx)")
+sex2 = Quali("Sex", groups = ["M", "F"], display = "n", cell_content = "x")
+
 
 univ = Section("Univariate tables", [Table(age), Table(sex)])
-biv = Section("Bivariate tables", [Table(age, trt), Table(sex, trt), Table(sex, trt)])
-changed_def = Section("Some changed defaults", [Table(age2), Table(age2, trt), Table(age3, trt), Table(sex2)])
-listings = Section("Listings", [Table(prices), Table(prices, nation)])
+changed_def = Section("Some changed defaults", [Table(age2), age2 * trt, age3 * trt, Table(sex2)])
+listings = Section("Listings", [Table(prices), prices * nation])
 tlf2 = TLF("Table, Listings, Figure examples", [univ, biv, changed_def, listings])
-
-tlf.to_doc(view = True)
-
+tlf.to_doc()
 
 
+# todo instead of
+univ = Section("Univariate tables", [Table(age), Table(sex)])
+# just do
+univ = Section("Univariate tables", [age, sex])
 
 
-
-
-        
-# overloading * to create Tables
-bivariate = tlf.Section('Overload *', [sex * trt, age * trt])
+## aggiungere in post init e nei method che aggiungono cose alle sezioni direi
