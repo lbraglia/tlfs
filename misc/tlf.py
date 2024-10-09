@@ -1,12 +1,14 @@
 import os
 
+import numpy as np
 import pandas as pd
 import docx
 
 from dataclasses import dataclass, field
 from multimethod import multimethod
 from itertools import chain
-# from docx.enum.table import WD_TABLE_ALIGNMENT
+
+debug = True
 
 def _def_quant_display():
     return ["n", "NA",
@@ -18,8 +20,8 @@ def _def_quant_display():
 class Quant:
     desc: str          # long variable description
     unit: str = None   # unit of measure
-    min: float = None  # minimum
-    max: float = None  # maximum
+    # min: float = None  # minimum
+    # max: float = None  # maximum
     display: list[str] = field(default_factory = _def_quant_display)
     cell_content: str = "x"  # default cell content (single number)
 
@@ -84,9 +86,6 @@ class Table():
         
     def to_csv(self, f):
         self.df.to_csv(f, header = False, index = False)
-
-    def add_to_docx(self):
-        pass       
         
     @multimethod
     def _make_df(self, a, b):
@@ -242,7 +241,7 @@ class Table():
             self.ncols)
         print(report)
     
-    def add_to_doc(self, doc: docx.Document):
+    def add_to_docx(self, doc: docx.Document):
         doc.add_paragraph(self.caption)
         tab = doc.add_table(rows = self.nrows, cols = self.ncols)
         # tab.style = "Table Grid" #funzionasse
@@ -288,13 +287,13 @@ class Section:
         else:
             raise Exception("x must be a Table or a list of tables")
         
-    def add_to_doc(self, doc: docx.Document):
+    def add_to_docx(self, doc: docx.Document):
         # heading and space
         doc.add_heading(self.title, level = self.heading_lev)
         doc.add_paragraph("")
         # add tables
         for t in self.tables:
-            t.add_to_doc(doc)
+            t.add_to_docx(doc)
 
             
 @dataclass
@@ -311,7 +310,7 @@ class TLF:
         else:
             raise Exception("x must be a Section or a list of sections")
     
-    def to_doc(self, outfile: str = "/tmp/test.docx", view: bool = False):
+    def to_docx(self, outfile: str = "/tmp/test.docx", view: bool = True):
         doc = docx.Document()
         # header
         if type(self.title) is str:
@@ -319,13 +318,115 @@ class TLF:
             
         # content
         for s in self.sections:
-            s.add_to_doc(doc)
+            s.add_to_docx(doc)
 
         doc.save(outfile)
         if view:
             os.system("libreoffice " + outfile)
-        
 
+    def from_xlsx(self, infile = "tlf_structure.xlsx"):
+        sections = pd.read_excel(infile, sheet_name = 'sections')
+        tables = pd.read_excel(infile, sheet_name = 'tables')
+        variables = pd.read_excel(infile, sheet_name = 'variables')
+        groups_items_contents = pd.read_excel(infile, sheet_name = 'groups_items_contents')
+
+        if debug:
+            print(sections)
+            print(tables)
+            print(variables)
+            print(groups_items_contents)
+
+        # already created variables
+        variables_pool = {} 
+
+        # groups_items_contents as lookup dict
+        gic = {}
+        for _, gic_id, gic_gic in groups_items_contents.itertuples():
+            if gic_id not in gic:
+                # create a new gic
+                gic[gic_id] = [gic_gic]
+            else:
+                # update
+                gic[gic_id].append(gic_gic)
+
+        if debug:
+            print(gic)
+
+        # function to create variables
+        def make_var(varid):
+            vrow = variables.loc[variables.id == varid]
+            if vrow.shape[0] > 1:
+                msg = "multiple variables with id {0}".format(varid)
+                raise Exception(msg)
+
+            for v in vrow.itertuples(): # avoid squeezing all the var with a 1 iteration for
+                if v.type == "quant":
+                    unit = None if v.unit == "" else v.unit
+                    return Quant(desc = v.desc, unit = unit)
+                elif v.type == "quali":
+                    groups = gic[v.groups]
+                    return Quali(desc = v.desc, groups = groups)
+                elif v.type == "itemset":
+                    items = gic[v.items]
+                    contents = gic[v.contents]
+                    return Itemset(desc = v.desc, items = items, contents = contents)
+                else:
+                    msg = "Unhandled variable type: '{0}'".format(v.type) 
+                    raise Exception(msg)
+
+        
+        # for every section
+        for _, sect_id, sect_title in sections.itertuples():
+
+            # initialize the data structure
+            sect = Section(sect_title)
+            # Select tables for this section
+            sect_tables = tables.loc[tables.section == sect_id, ] 
+
+            # # for every table in the section construct the
+            for _, _, tab_var1, tab_var2, tab_caption in sect_tables.itertuples():
+
+                # retrieve or create the variables and put them in their container
+                # tab_var1 is mandatory
+                if tab_var1 in (np.nan, ""):
+                    raise Exception("var1 cannot be missing")
+                elif tab_var1 not in variables_pool: # still not encountered variables
+                    used_var1 = variables_pool[tab_var1] = make_var(tab_var1)
+                else: # already encountered
+                    used_var1 = variables_pool[tab_var1]
+                
+                # tab_var2 is optional
+                if tab_var2 in (np.nan, ""):
+                    used_var2 = None
+                elif tab_var2 not in variables_pool:
+                    used_var2 = variables_pool[tab_var2] = make_var(tab_var2)
+                else:
+                    used_var2 = variables_pool[tab_var2]
+
+                # normalize caption
+                if tab_caption in ("", np.nan):
+                    used_caption = None
+                else:
+                    used_caption = tab_caption
+                
+                # add the table to the section
+                sect.add_tables(Table(x = used_var1,
+                                      y = used_var2,
+                                      caption = used_caption))
+
+            # add the section to the tlf
+            self.add_sections(sect)
+ 
+               
+
+tlf = TLF("Test")
+tlf.from_xlsx()
+tlf
+tlf.to_docx(view = True)
+
+
+    
+# for custom shit do program by hand
 age = Quant("Age")
 sex = Quali("Sex", groups = ["M", "F"])
 trt = Quali("Treatment", groups = ["EXP", "CTRL"])
@@ -341,7 +442,7 @@ univ = Section("Univariate tables", [Table(age), Table(sex)])
 biv = Section("Bivariate tables", [Table(age, trt), Table(sex, trt), Table(sex, trt)])
 changed_def = Section("Some changed defaults", [Table(age2), Table(age2, trt), Table(age3, trt), Table(sex2)])
 listings = Section("Listings", [Table(prices), Table(prices, nation)])
-tlf = TLF("Table, Listings, Figure examples", [univ, biv, changed_def, listings])
+tlf2 = TLF("Table, Listings, Figure examples", [univ, biv, changed_def, listings])
 
 tlf.to_doc(view = True)
 
