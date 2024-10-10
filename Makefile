@@ -1,8 +1,8 @@
-install-from-pipy:
-	python3 -m pip install --upgrade tlfs
-
 install-dev-version:
 	pip3 install .
+
+install-from-pipy:
+	python3 -m pip install --upgrade tlfs
 
 upload:
 	rm -rf dist/*
