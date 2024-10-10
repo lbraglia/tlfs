@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "tlfs"
 dynamic = ["version"]
-description = ''
+description = 'Classes and scripts to create TLFs (Table, Listing, Figures shells) quickly and in an opinionated way.'
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
@@ -24,12 +24,18 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = []
+dependencies = [
+  "numpy", "pandas", "docx", "multimethod"
+]
 
 [project.urls]
-Documentation = "https://github.com/Luca Braglia/tlfs#readme"
-Issues = "https://github.com/Luca Braglia/tlfs/issues"
-Source = "https://github.com/Luca Braglia/tlfs"
+Documentation = "https://github.com/lbraglia/tlfs#readme"
+Issues = "https://github.com/lbraglia/tlfs/issues"
+Source = "https://github.com/lbraglia/tlfs"
+
+
+[project.scripts]
+tlfs = "tlfs.scripts.main"
 
 [tool.hatch.version]
 path = "src/tlfs/__about__.py"
