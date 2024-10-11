@@ -35,7 +35,7 @@ Source = "https://github.com/lbraglia/tlfs"
 
 
 [project.scripts]
-tlfs = "tlfs.scripts.main"
+tlfs = "tlfs.scripts:main"
 
 [tool.hatch.version]
 path = "src/tlfs/__about__.py"

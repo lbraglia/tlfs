@@ -1,3 +1,5 @@
+import os
+import sys
 from tlfs import TLF
 
 def usage():
