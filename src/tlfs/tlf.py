@@ -39,7 +39,7 @@ class Quali:
     groups: list[str]
     display: str = "n (col %)"
     cell_content: str = "x (x)"  # default cell content (single number)
-    add_NA: bool = True
+    add_NA: bool = False# True
     add_tot: bool = True
 
     def __post_init__(self):
@@ -334,11 +334,12 @@ class TLF:
         if view:
             os.system("libreoffice " + outfile)
 
-    def from_xlsx(self, infile = "tlf_structure.xlsx"):
-        sections = pd.read_excel(infile, sheet_name = 'sections')
-        tables = pd.read_excel(infile, sheet_name = 'tables')
-        variables = pd.read_excel(infile, sheet_name = 'variables')
-        groups_items_contents = pd.read_excel(infile, sheet_name = 'groups_items_contents')
+    def from_xlsx(self, infile = None):
+        sections = pd.read_excel(infile, sheet_name = 'sections').dropna(how = 'all')
+        tables = pd.read_excel(infile, sheet_name = 'tables').dropna(how = 'all')
+        tables["caption"] = tables.caption.astype(str)
+        variables = pd.read_excel(infile, sheet_name = 'variables').dropna(how = 'all')
+        groups_items_contents = pd.read_excel(infile, sheet_name = 'groups_items_contents').dropna(how = 'all')
 
         if debug:
             print(sections)
@@ -427,3 +428,6 @@ class TLF:
             # add the section to the tlf
             self.add_sections(sect)
 
+
+# if __name__ == '__main__':
+#     tlf = TLF().from_xlsx("/home/l/tlf_structure.xlsx")
