@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from multimethod import multimethod
 from itertools import chain
 
-debug = True
+# debug = True
 # import ipdb
 
 def _def_quant_display():
@@ -80,7 +80,7 @@ class Table():
     x: Quant|Quali
     y: Quant|Quali|None = None # none if univariate
     caption: str|None = None
-
+    debug: bool = False
 
     
     def __post_init__(self):
@@ -90,7 +90,7 @@ class Table():
                
         # generate the pd.DataFrame representing the table
         self._make_df(self.x, self.y)
-        if debug:
+        if self.debug:
             self._print_info()
             print(self.df)
         
@@ -228,7 +228,7 @@ class Table():
             header_row1_merged_start,
             header_row1_merged_stop
         )]
-        if debug:
+        if self.debug:
             print(self.merged_cells)
         header_row2 = [""] + a.contents * len(b.categories)
         df   = pd.DataFrame(header_row1).transpose()
@@ -303,12 +303,13 @@ class Section:
         for t in self.tables:
             t.add_to_docx(doc)
 
-            
+
 @dataclass
 class TLF:
     title: str|None = None
     sections: list[Section] = field(default_factory = list)
     heading_lev: int = 1
+    debug: bool = False
 
     def add_sections(self, x: Section|list[Section]):
         if type(x) == list:
@@ -338,7 +339,7 @@ class TLF:
         variables = pd.read_excel(infile, sheet_name = 'variables').dropna(how = 'all')
         categories_items_contents = pd.read_excel(infile, sheet_name = 'categories_items_contents').dropna(how = 'all')
 
-        if debug:
+        if self.debug:
             print(sections)
             print(tables)
             print(variables)
@@ -357,7 +358,7 @@ class TLF:
                 # update
                 cic[cic_id].append(cic_cic)
 
-        if debug:
+        if self.debug:
             print(cic)
 
         # function to create variables
@@ -421,11 +422,8 @@ class TLF:
                 # add the table to the section
                 sect.add_tables(Table(x = used_var1,
                                       y = used_var2,
-                                      caption = used_caption))
+                                      caption = used_caption,
+                                      debug = self.debug))
 
             # add the section to the tlf
             self.add_sections(sect)
-
-
-# if __name__ == '__main__':
-#     tlf = TLF().from_xlsx("/home/l/tlf_structure.xlsx")
