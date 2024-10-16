@@ -12,8 +12,8 @@ upload:
 tests: install-dev-version
 	cd /tmp && \
 	rm -rf *.xlsx  && \
-	tlfs ~/src/pypkg/tlfs/examples/tlf_structure.xlsx  && \
-	# tlfs ~/src/pypkg/tlfs/examples/tlf_structure2.xlsx  && \
+	tlfs ~/src/pypkg/tlfs/examples/example1.xlsx  && \
+	# tlfs ~/src/pypkg/tlfs/examples/example2.xlsx  && \
 	libreoffice *.xlsx
 
 # wrongexamples: install-dev-version
