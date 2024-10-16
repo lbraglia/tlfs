@@ -18,19 +18,20 @@ pip install tlfs
 
 ## License
 
-`tlfs` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
+`tlfs` is distributed under the terms of the
+[MIT](https://spdx.org/licenses/MIT.html) license.
 
 ## Example usage
 For some "standard" (opinionated) stuff you could do the following
-(which is what is done in the [web version on streamlit](https://webtlfs.streamlit.app/)):
+(which is what is done in the [web version on
+streamlit](https://webtlfs.streamlit.app/)):
 ``` python
 tlf = TLF("Test")
 tlf.from_xlsx("path-to-your.xlsx")
 tlf
 tlf.to_docx("path-to-your.docx")
 ```
-For custom stuff do program by hand
-
+For custom stuff one has to program by hand:
 ``` python
 
 # overloading * Quant/Quali/Itemset to create Tables quickly
