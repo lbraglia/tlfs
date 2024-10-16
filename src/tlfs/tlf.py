@@ -9,6 +9,7 @@ from multimethod import multimethod
 from itertools import chain
 
 debug = True
+# import ipdb
 
 def _def_quant_display():
     return ["n", "NA",
@@ -73,12 +74,14 @@ class Itemset:
     def __mul__(self, other):
         return Table(self, other)
     
-
+    
 @dataclass
 class Table():
     x: Quant|Quali
     y: Quant|Quali|None = None # none if univariate
     caption: str|None = None
+
+
     
     def __post_init__(self):
         # check input
@@ -253,10 +256,6 @@ class Table():
     def add_to_docx(self, doc: docx.Document):
         doc.add_paragraph(self.caption)
         tab = doc.add_table(rows = self.nrows, cols = self.ncols)
-        # tab.style = "Table Grid" #funzionasse
-        # tab.alignment = WD_TABLE_ALIGNMENT.LEFT
-        # tab.autofit = False
-        # tab.style = None
 
         # add contents
         for r in range(self.nrows):
@@ -336,7 +335,6 @@ class TLF:
     def from_xlsx(self, infile = None):
         sections = pd.read_excel(infile, sheet_name = 'sections').dropna(how = 'all')
         tables = pd.read_excel(infile, sheet_name = 'tables').dropna(how = 'all')
-        tables["caption"] = tables.caption.astype(str)
         variables = pd.read_excel(infile, sheet_name = 'variables').dropna(how = 'all')
         categories_items_contents = pd.read_excel(infile, sheet_name = 'categories_items_contents').dropna(how = 'all')
 
@@ -350,17 +348,17 @@ class TLF:
         variables_pool = {} 
 
         # categories_items_contents as lookup dict
-        gic = {}
-        for _, gic_id, gic_gic in categories_items_contents.itertuples():
-            if gic_id not in gic:
-                # create a new gic
-                gic[gic_id] = [gic_gic]
+        cic = {}
+        for _, cic_id, cic_cic in categories_items_contents.itertuples():
+            if cic_id not in cic:
+                # create a new cic
+                cic[cic_id] = [cic_cic]
             else:
                 # update
-                gic[gic_id].append(gic_gic)
+                cic[cic_id].append(cic_cic)
 
         if debug:
-            print(gic)
+            print(cic)
 
         # function to create variables
         def make_var(varid):
@@ -374,11 +372,11 @@ class TLF:
                     unit = None if v.unit == "" else v.unit
                     return Quant(desc = v.desc, unit = unit)
                 elif v.type == "quali":
-                    categories = gic[v.categories]
+                    categories = cic[v.categories]
                     return Quali(desc = v.desc, categories = categories)
                 elif v.type == "itemset":
-                    items = gic[v.items]
-                    contents = gic[v.contents]
+                    items = cic[v.items]
+                    contents = cic[v.contents]
                     return Itemset(desc = v.desc, items = items, contents = contents)
                 else:
                     msg = "Unhandled variable type: '{0}'".format(v.type) 
@@ -398,7 +396,7 @@ class TLF:
 
                 # retrieve or create the variables and put them in their container
                 # tab_var1 is mandatory
-                if tab_var1 in (np.nan, ""):
+                if pd.isnull(tab_var1):
                     raise Exception("var1 cannot be missing")
                 elif tab_var1 not in variables_pool: # still not encountered variables
                     used_var1 = variables_pool[tab_var1] = make_var(tab_var1)
@@ -406,18 +404,19 @@ class TLF:
                     used_var1 = variables_pool[tab_var1]
                 
                 # tab_var2 is optional
-                if tab_var2 in (np.nan, ""):
+                if pd.isnull(tab_var2):
                     used_var2 = None
-                elif tab_var2 not in variables_pool:
+                elif tab_var2 not in variables_pool:  # still not encountered variables
                     used_var2 = variables_pool[tab_var2] = make_var(tab_var2)
                 else:
                     used_var2 = variables_pool[tab_var2]
 
-                # normalize caption
-                if tab_caption in ("", np.nan):
+                # # normalize caption
+                # ipdb.set_trace()
+                if pd.isnull(tab_caption): # missing pandas are float na
                     used_caption = None
                 else:
-                    used_caption = tab_caption
+                    used_caption = str(tab_caption)
                 
                 # add the table to the section
                 sect.add_tables(Table(x = used_var1,
