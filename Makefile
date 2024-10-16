@@ -1,5 +1,5 @@
 install-dev-version:
-	pip3 install .
+	pip3 install -e .
 
 install-from-pipy:
 	python3 -m pip install --upgrade tlfs

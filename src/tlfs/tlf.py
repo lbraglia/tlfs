@@ -20,10 +20,8 @@ def _def_quant_display():
 class Quant:
     desc: str          # long variable description
     unit: str = None   # unit of measure
-    # min: float = None  # minimum
-    # max: float = None  # maximum
     display: list[str] = field(default_factory = _def_quant_display)
-    cell_content: str = "x"  # default cell content (single number)
+    cell_content: str = "x"  # default cell content: single number
 
     def __post_init__(self):
         # normalize display so that user can specify a single string
@@ -38,14 +36,15 @@ class Quali:
     desc: str   # variable description
     categories: list[str]
     display: str = "n (col %)"
-    cell_content: str = "x (x)"  # default cell content (single number)
-    add_NA: bool = False# True
+    cell_content: str = "x (x)"  # default cell content: n(%)
+    add_NA: bool = True
     add_tot: bool = True
 
     def __post_init__(self):
         # check quali has at least two categories
         if len(self.categories) < 2:
-            raise Exception("At least two categories are required")
+            msg = f"{self.desc}: at least two categories are required"
+            raise Exception(msg)
         # add NA and Tot to the group
         add_categories = ["NA"] * self.add_NA + ["Tot"] * self.add_tot
         self.actual_categories = self.categories + add_categories
