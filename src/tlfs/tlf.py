@@ -36,19 +36,19 @@ class Quant:
 @dataclass
 class Quali:
     desc: str   # variable description
-    groups: list[str]
+    categories: list[str]
     display: str = "n (col %)"
     cell_content: str = "x (x)"  # default cell content (single number)
     add_NA: bool = False# True
     add_tot: bool = True
 
     def __post_init__(self):
-        # check quali has at least two groups
-        if len(self.groups) < 2:
-            raise Exception("At least two groups are required")
+        # check quali has at least two categories
+        if len(self.categories) < 2:
+            raise Exception("At least two categories are required")
         # add NA and Tot to the group
-        add_groups = ["NA"] * self.add_NA + ["Tot"] * self.add_tot
-        self.actual_groups = self.groups + add_groups
+        add_categories = ["NA"] * self.add_NA + ["Tot"] * self.add_tot
+        self.actual_categories = self.categories + add_categories
         
     def __mul__(self, other):
         return Table(self, other)
@@ -124,12 +124,12 @@ class Table():
             self.caption = a.desc
         self.tabtype = "univariate quali"
         self.header_nrows = 1
-        self.nrows = self.header_nrows + len(a.actual_groups) 
+        self.nrows = self.header_nrows + len(a.actual_categories) 
         self.ncols = 2
         # table creation
         col2_head = a.desc + ", "+ a.display
-        col1 = pd.Series([""] + a.actual_groups)
-        col2 = pd.Series([col2_head] + [a.cell_content]*len(a.actual_groups))
+        col1 = pd.Series([""] + a.actual_categories)
+        col2 = pd.Series([col2_head] + [a.cell_content]*len(a.actual_categories))
         self.df = pd.concat([col1, col2], axis = 1)
 
     @_make_df.register
@@ -138,14 +138,14 @@ class Table():
         self.tabtype = "quant x quali"
         self.header_nrows = 2
         self.nrows = self.header_nrows + len(a.display)
-        self.ncols = 1 + len(b.groups) + 2
+        self.ncols = 1 + len(b.categories) + 2
         if self.caption is None:
             self.caption = "{0} by {1}".format(a.desc, b.desc.lower())
         # table creation
         y_header = b.desc
         x_header = "{0} ({1})".format(a.desc, a.unit) if a.unit is not None else a.desc
-        header_row1 = ["", y_header] + [""] * (len(b.actual_groups) - 1)
-        header_row2 = [x_header] + b.actual_groups
+        header_row1 = ["", y_header] + [""] * (len(b.actual_categories) - 1)
+        header_row2 = [x_header] + b.actual_categories
         self.merged_cells = [([0, 0], [1, 0]),
                              ([0, 1], [0, self.ncols - 1])]
         df   = pd.DataFrame(header_row1).transpose()
@@ -163,22 +163,22 @@ class Table():
         # table infos
         self.tabtype = "quali x quali"
         self.header_nrows = 2
-        self.nrows = self.header_nrows + len(a.actual_groups)
-        self.ncols = 1 + len(b.actual_groups)
+        self.nrows = self.header_nrows + len(a.actual_categories)
+        self.ncols = 1 + len(b.actual_categories)
         if self.caption is None:
             self.caption = "{0} by {1}".format(a.desc, b.desc.lower())
         # table creation
         y_header = b.desc + ", " + b.display
         x_header = a.desc
-        header_row1 = ["", y_header] + [""] * (len(b.actual_groups) - 1)
-        header_row2 = [x_header] + b.actual_groups
+        header_row1 = ["", y_header] + [""] * (len(b.actual_categories) - 1)
+        header_row2 = [x_header] + b.actual_categories
         self.merged_cells = [([0, 0], [1, 0]),
                              ([0, 1], [0, self.ncols - 1])]
         df   = pd.DataFrame(header_row1).transpose()
         row2 = pd.DataFrame(header_row2).transpose()
         df = pd.concat([df, row2])
         # fill the table rowwise
-        for x in a.actual_groups:
+        for x in a.actual_categories:
             content = [x] + [b.cell_content] * (self.ncols - 1)
             new_row = pd.DataFrame(content).transpose()
             df = pd.concat([df, new_row])
@@ -209,11 +209,11 @@ class Table():
         self.tabtype = "bivariate listing"
         self.header_nrows = 2
         self.nrows = self.header_nrows + len(a.items)
-        self.ncols = 1 + len(a.contents) * len(b.groups)
+        self.ncols = 1 + len(a.contents) * len(b.categories)
         if self.caption is None:
             self.caption = "Listing of {0} by {1}".format(a.desc.lower(), b.desc.lower())
         # table creation
-        head = [[x] + ([""] * (len(a.contents) - 1))    for x in b.groups]
+        head = [[x] + ([""] * (len(a.contents) - 1))    for x in b.categories]
         header_row1 = [""] + list(chain.from_iterable(head)) # flatten it
         # set the cell to be merged
         # header_row1_merged_start = list(range(2, 7, 3))
@@ -228,7 +228,7 @@ class Table():
         )]
         if debug:
             print(self.merged_cells)
-        header_row2 = [""] + a.contents * len(b.groups)
+        header_row2 = [""] + a.contents * len(b.categories)
         df   = pd.DataFrame(header_row1).transpose()
         row2 = pd.DataFrame(header_row2).transpose()
         df = pd.concat([df, row2])
@@ -339,20 +339,20 @@ class TLF:
         tables = pd.read_excel(infile, sheet_name = 'tables').dropna(how = 'all')
         tables["caption"] = tables.caption.astype(str)
         variables = pd.read_excel(infile, sheet_name = 'variables').dropna(how = 'all')
-        groups_items_contents = pd.read_excel(infile, sheet_name = 'groups_items_contents').dropna(how = 'all')
+        categories_items_contents = pd.read_excel(infile, sheet_name = 'categories_items_contents').dropna(how = 'all')
 
         if debug:
             print(sections)
             print(tables)
             print(variables)
-            print(groups_items_contents)
+            print(categories_items_contents)
 
         # already created variables
         variables_pool = {} 
 
-        # groups_items_contents as lookup dict
+        # categories_items_contents as lookup dict
         gic = {}
-        for _, gic_id, gic_gic in groups_items_contents.itertuples():
+        for _, gic_id, gic_gic in categories_items_contents.itertuples():
             if gic_id not in gic:
                 # create a new gic
                 gic[gic_id] = [gic_gic]
@@ -375,8 +375,8 @@ class TLF:
                     unit = None if v.unit == "" else v.unit
                     return Quant(desc = v.desc, unit = unit)
                 elif v.type == "quali":
-                    groups = gic[v.groups]
-                    return Quali(desc = v.desc, groups = groups)
+                    categories = gic[v.categories]
+                    return Quali(desc = v.desc, categories = categories)
                 elif v.type == "itemset":
                     items = gic[v.items]
                     contents = gic[v.contents]
