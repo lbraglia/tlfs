@@ -62,6 +62,8 @@ tlf.to_doc("whatever.docx")
 
 
 ## TODO
+- add random figures
+- table/figure numbering?
 - overload + in `Table` to stack them
 - overload + in `Sections` to concatenate them
 - just do `Section("Univariate tables", [age, sex])` instead of 
