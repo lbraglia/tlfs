@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 from multimethod import multimethod
 from itertools import chain
 
-# debug = True
 # import ipdb
 
 def _def_quant_display():
@@ -19,8 +18,8 @@ def _def_quant_display():
 
 @dataclass
 class Quant:
-    desc: str          # long variable description
-    unit: str = None   # unit of measure
+    desc: str               # long variable description
+    unit: str|None = None   # unit of measure
     display: list[str] = field(default_factory = _def_quant_display)
     cell_content: str = "x"  # default cell content: single number
 
@@ -114,7 +113,7 @@ class Table():
         self.nrows = self.header_nrows + len(a.display)
         self.ncols = 2
         # table creation
-        main_header = "{0} ({1})".format(a.desc, a.unit) if a.unit is not None else a.desc
+        main_header = f"{a.desc} ({a.unit})" if a.unit is not None else a.desc
         col1 = pd.Series([""] + a.display)
         col2 = pd.Series([main_header] + [a.cell_content]*len(a.display))
         self.df = pd.concat([col1, col2], axis = 1)
@@ -145,7 +144,7 @@ class Table():
             self.caption = "{0} by {1}".format(a.desc, b.desc.lower())
         # table creation
         y_header = b.desc
-        x_header = "{0} ({1})".format(a.desc, a.unit) if a.unit is not None else a.desc
+        x_header = f"{a.desc} ({a.unit})" if a.unit is not None else a.desc
         header_row1 = ["", y_header] + [""] * (len(b.actual_categories) - 1)
         header_row2 = [x_header] + b.actual_categories
         self.merged_cells = [([0, 0], [1, 0]),
@@ -319,6 +318,7 @@ class TLF:
         else:
             raise Exception("x must be a Section or a list of sections")
     
+
     def to_docx(self, outfile: str = "/tmp/test.docx", view: bool = True):
         doc = docx.Document()
         # header
@@ -333,7 +333,9 @@ class TLF:
         if view:
             os.system("libreoffice " + outfile)
 
+
     def from_xlsx(self, infile = None):
+
         sections = pd.read_excel(infile, sheet_name = 'sections').dropna(how = 'all')
         tables = pd.read_excel(infile, sheet_name = 'tables').dropna(how = 'all')
         variables = pd.read_excel(infile, sheet_name = 'variables').dropna(how = 'all')
@@ -351,6 +353,10 @@ class TLF:
         # categories_items_contents as lookup dict
         cic = {}
         for _, cic_id, cic_cic in categories_items_contents.itertuples():
+            if pd.isna(cic_id) or pd.isna(cic_cic):
+                msg = f"Missing cell in categories, items, contents: {cic_id} {cic_cic}"
+                raise Exception(msg)
+            
             if cic_id not in cic:
                 # create a new cic
                 cic[cic_id] = [cic_cic]
@@ -361,31 +367,46 @@ class TLF:
         if self.debug:
             print(cic)
 
-        # function to create variables
+        # function parsing xlxs to create variables object
         def make_var(varid):
+            # check variable names uniqueness
             vrow = variables.loc[variables.id == varid]
             if vrow.shape[0] > 1:
-                msg = "multiple variables with id {0}".format(varid)
+                msg = f"multiple variables with id {varid}"
                 raise Exception(msg)
 
-            for v in vrow.itertuples(): # avoid squeezing all the var with a 1 iteration for
+            # row/variable main cycle
+            for v in vrow.itertuples():
+
+                desc = v.desc
+
                 if v.type == "quant":
-                    unit = None if v.unit == "" else v.unit
-                    return Quant(desc = v.desc, unit = unit)
+                    if self.debug:
+                        print("-----------------------------------------")
+                        print(v.unit)
+                        print(type(v.unit))
+                        print("-----------------------------------------")
+                        # ipdb.set_trace()
+                    unit = None if (v.unit == "" or pd.isnull(v.unit)) else v.unit
+                    return Quant(desc = desc, unit = unit)
                 elif v.type == "quali":
                     categories = cic[v.categories]
-                    return Quali(desc = v.desc, categories = categories)
+                    return Quali(desc = desc, categories = categories)
                 elif v.type == "itemset":
                     items = cic[v.items]
                     contents = cic[v.contents]
-                    return Itemset(desc = v.desc, items = items, contents = contents)
+                    return Itemset(desc = desc, items = items, contents = contents)
                 else:
-                    msg = "Unhandled variable type: '{0}'".format(v.type) 
+                    msg = f"Unhandled variable type: {v.type}" # may be na and this cannot be
                     raise Exception(msg)
 
         
         # for every section
         for _, sect_id, sect_title in sections.itertuples():
+
+            if pd.isna(sect_id) or pd.isna(sect_title):
+                msg = f"Missing section id or title: {sect_id} {sect_title}"
+                raise Exception(msg)
 
             # initialize the data structure
             sect = Section(sect_title)
@@ -397,7 +418,7 @@ class TLF:
 
                 # retrieve or create the variables and put them in their container
                 # tab_var1 is mandatory
-                if pd.isnull(tab_var1):
+                if pd.isna(tab_var1):
                     raise Exception("var1 cannot be missing")
                 elif tab_var1 not in variables_pool: # still not encountered variables
                     used_var1 = variables_pool[tab_var1] = make_var(tab_var1)
@@ -405,16 +426,15 @@ class TLF:
                     used_var1 = variables_pool[tab_var1]
                 
                 # tab_var2 is optional
-                if pd.isnull(tab_var2):
+                if pd.isna(tab_var2):
                     used_var2 = None
                 elif tab_var2 not in variables_pool:  # still not encountered variables
                     used_var2 = variables_pool[tab_var2] = make_var(tab_var2)
                 else:
                     used_var2 = variables_pool[tab_var2]
 
-                # # normalize caption
-                # ipdb.set_trace()
-                if pd.isnull(tab_caption): # missing pandas are float na
+                # normalize caption
+                if pd.isna(tab_caption): # missing pandas are float na
                     used_caption = None
                 else:
                     used_caption = str(tab_caption)

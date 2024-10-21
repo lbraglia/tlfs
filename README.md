@@ -68,4 +68,5 @@ tlf.to_doc("whatever.docx")
 - overload + in `Sections` to concatenate them
 - just do `Section("Univariate tables", [age, sex])` instead of 
   `Section("Univariate tables", [Table(age), Table(sex)])`
-
+- "UK|Control", "UK|Intervention", "Tot|Control", "Tot|Intervention",
+  by three way tables
