@@ -372,21 +372,17 @@ class TLF:
             # check variable names uniqueness
             vrow = variables.loc[variables.id == varid]
             if vrow.shape[0] > 1:
-                msg = f"multiple variables with id {varid}"
+                msg = f"Multiple variables with id {varid}"
+                raise Exception(msg)
+            elif vrow.shape[0] == 0:
+                msg = f"No variables named {varid}"
                 raise Exception(msg)
 
             # row/variable main cycle
             for v in vrow.itertuples():
-
                 desc = v.desc
 
                 if v.type == "quant":
-                    if self.debug:
-                        print("-----------------------------------------")
-                        print(v.unit)
-                        print(type(v.unit))
-                        print("-----------------------------------------")
-                        # ipdb.set_trace()
                     unit = None if (v.unit == "" or pd.isnull(v.unit)) else v.unit
                     return Quant(desc = desc, unit = unit)
                 elif v.type == "quali":
@@ -408,6 +404,10 @@ class TLF:
                 msg = f"Missing section id or title: {sect_id} {sect_title}"
                 raise Exception(msg)
 
+            if self.debug:
+                msg = f"Doing section {sect_id}, {sect_title}"
+                print(msg)
+            
             # initialize the data structure
             sect = Section(sect_title)
             # Select tables for this section
@@ -415,6 +415,10 @@ class TLF:
 
             # # for every table in the section construct the
             for _, _, tab_var1, tab_var2, tab_caption in sect_tables.itertuples():
+
+                if self.debug:
+                    msg = f"Doing table {tab_var1} x {tab_var2}."
+                    print(msg)
 
                 # retrieve or create the variables and put them in their container
                 # tab_var1 is mandatory

@@ -62,7 +62,7 @@ tlf.to_doc("whatever.docx")
 
 
 ## TODO
-- add random figures
+- add random figures/graphs
 - table/figure numbering?
 - overload + in `Table` to stack them
 - overload + in `Sections` to concatenate them
